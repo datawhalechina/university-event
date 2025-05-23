@@ -3,117 +3,148 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
 
-const router = useRouter()
 const userStore = useUserStore()
+const router = useRouter()
 
-const name = ref('')
-const email = ref('')
-const password = ref('')
-const confirmPassword = ref('')
-const errorMessage = ref('')
+const registerForm = ref({
+  name: '',
+  email: '',
+  password: '',
+  confirmPassword: ''
+})
+const formRef = ref(null)
 const isLoading = ref(false)
+const errorMessage = ref('')
 
-const register = async () => {
-  if (!name.value || !email.value || !password.value) {
-    errorMessage.value = '请填写所有必填字段'
-    return
+const validatePass = (rule, value, callback) => {
+  if (value === '') {
+    callback(new Error('请再次输入密码'))
+  } else if (value !== registerForm.value.password) {
+    callback(new Error('两次输入密码不一致'))
+  } else {
+    callback()
   }
+}
+
+const rules = {
+  name: [
+    { required: true, message: '请输入用户名', trigger: 'blur' },
+    { min: 2, message: '用户名长度不能少于2个字符', trigger: 'blur' }
+  ],
+  email: [
+    { required: true, message: '请输入邮箱', trigger: 'blur' },
+    { type: 'email', message: '请输入正确的邮箱格式', trigger: 'blur' }
+  ],
+  password: [
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { min: 6, message: '密码长度不能少于6个字符', trigger: 'blur' }
+  ],
+  confirmPassword: [
+    { required: true, message: '请再次输入密码', trigger: 'blur' },
+    { validator: validatePass, trigger: 'blur' }
+  ]
+}
+
+const register = async (formEl) => {
+  if (!formEl) return
   
-  if (password.value !== confirmPassword.value) {
-    errorMessage.value = '两次输入的密码不一致'
-    return
-  }
-  
-  try {
-    isLoading.value = true
-    errorMessage.value = ''
-    
-    // 这里应该是实际的API调用，现在使用模拟数据
-    // const response = await axios.post('/api/register', { 
-    //   name: name.value,
-    //   email: email.value, 
-    //   password: password.value 
-    // })
-    
-    // 模拟成功注册
-    setTimeout(() => {
-      const userData = { id: 1, name: name.value, email: email.value }
-      const token = 'mock-jwt-token-' + Math.random().toString(36).substring(2)
+  await formEl.validate(async (valid) => {
+    if (valid) {
+      isLoading.value = true
+      errorMessage.value = ''
       
-      userStore.login(userData, token)
-      router.push('/')
-      isLoading.value = false
-    }, 1000)
-  } catch (error) {
-    errorMessage.value = error.response?.data?.message || '注册失败，请重试'
-    isLoading.value = false
-  }
+      try {
+        await userStore.register(
+          registerForm.value.name,
+          registerForm.value.email,
+          registerForm.value.password
+        )
+        router.push('/')
+      } catch (error) {
+        errorMessage.value = error.message || '注册失败，请稍后再试'
+      } finally {
+        isLoading.value = false
+      }
+    }
+  })
 }
 </script>
 
 <template>
   <div class="register-container">
-    <div class="register-card">
-      <h1>注册</h1>
+    <el-card class="register-card">
+      <template #header>
+        <h1>注册</h1>
+      </template>
       
-      <div v-if="errorMessage" class="error-message">
-        {{ errorMessage }}
-      </div>
+      <el-alert
+        v-if="errorMessage"
+        :title="errorMessage"
+        type="error"
+        show-icon
+        :closable="false"
+        class="mb-4"
+      />
       
-      <form @submit.prevent="register" class="register-form">
-        <div class="form-group">
-          <label for="name">用户名</label>
-          <input 
-            id="name" 
-            v-model="name" 
-            type="text" 
+      <el-form
+        ref="formRef"
+        :model="registerForm"
+        :rules="rules"
+        label-position="top"
+        @submit.prevent
+      >
+        <el-form-item label="用户名" prop="name">
+          <el-input 
+            v-model="registerForm.name"
             placeholder="请输入用户名"
-            required
+            prefix-icon="User"
           />
-        </div>
+        </el-form-item>
         
-        <div class="form-group">
-          <label for="email">邮箱</label>
-          <input 
-            id="email" 
-            v-model="email" 
-            type="email" 
+        <el-form-item label="邮箱" prop="email">
+          <el-input 
+            v-model="registerForm.email"
             placeholder="请输入邮箱"
-            required
+            prefix-icon="Message"
           />
-        </div>
+        </el-form-item>
         
-        <div class="form-group">
-          <label for="password">密码</label>
-          <input 
-            id="password" 
-            v-model="password" 
-            type="password" 
+        <el-form-item label="密码" prop="password">
+          <el-input 
+            v-model="registerForm.password"
+            type="password"
             placeholder="请输入密码"
-            required
+            prefix-icon="Lock"
+            show-password
           />
-        </div>
+        </el-form-item>
         
-        <div class="form-group">
-          <label for="confirm-password">确认密码</label>
-          <input 
-            id="confirm-password" 
-            v-model="confirmPassword" 
-            type="password" 
+        <el-form-item label="确认密码" prop="confirmPassword">
+          <el-input 
+            v-model="registerForm.confirmPassword"
+            type="password"
             placeholder="请再次输入密码"
-            required
+            prefix-icon="Lock"
+            show-password
           />
-        </div>
+        </el-form-item>
         
-        <button type="submit" :disabled="isLoading" class="register-button">
-          {{ isLoading ? '注册中...' : '注册' }}
-        </button>
-      </form>
+        <el-form-item>
+          <el-button 
+            type="primary" 
+            :loading="isLoading" 
+            @click="register(formRef)"
+            class="register-button"
+          >
+            {{ isLoading ? '注册中...' : '注册' }}
+          </el-button>
+        </el-form-item>
+      </el-form>
       
       <div class="login-link">
         已有账号？ <router-link to="/login">立即登录</router-link>
       </div>
-    </div>
+    </el-card>
   </div>
 </template>
 
@@ -122,98 +153,44 @@ const register = async () => {
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 80vh;
+  min-height: 100vh;
   padding: 20px;
+  background-color: var(--el-bg-color-page);
 }
 
 .register-card {
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  padding: 30px;
   width: 100%;
   max-width: 400px;
 }
 
-h1 {
-  color: #1976d2;
+.register-card :deep(.el-card__header) {
+  padding: 20px;
   text-align: center;
-  margin-bottom: 24px;
-  font-weight: 600;
 }
 
-.register-form {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+h1 {
+  margin: 0;
+  font-size: 24px;
+  color: var(--el-color-primary);
 }
 
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-label {
-  font-weight: 500;
-  color: #333;
-}
-
-input {
-  padding: 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 16px;
-  transition: border-color 0.3s;
-}
-
-input:focus {
-  outline: none;
-  border-color: #1976d2;
-  box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.2);
+.mb-4 {
+  margin-bottom: 16px;
 }
 
 .register-button {
-  background-color: #1976d2;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  padding: 12px;
-  font-size: 16px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.3s;
-  margin-top: 10px;
-}
-
-.register-button:hover {
-  background-color: #1565c0;
-}
-
-.register-button:disabled {
-  background-color: #90caf9;
-  cursor: not-allowed;
-}
-
-.error-message {
-  background-color: #ffebee;
-  color: #d32f2f;
-  padding: 10px;
-  border-radius: 4px;
-  margin-bottom: 20px;
-  text-align: center;
+  width: 100%;
 }
 
 .login-link {
   text-align: center;
-  margin-top: 20px;
-  color: #666;
+  margin-top: 16px;
+  color: var(--el-text-color-secondary);
 }
 
 .login-link a {
-  color: #1976d2;
+  color: var(--el-color-primary);
   text-decoration: none;
-  font-weight: 500;
 }
 
 .login-link a:hover {

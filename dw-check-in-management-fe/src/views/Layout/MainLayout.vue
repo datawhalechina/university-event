@@ -25,17 +25,13 @@ import SideBar from './SideBar.vue'
 .content-wrapper {
   display: flex;
   flex: 1;
+  position: relative; /* 添加相对定位 */
 }
 
 .main-content {
   flex: 1;
   padding: 20px;
-  margin-left: 220px;
-}
-
-@media (max-width: 768px) {
-  .main-content {
-    margin-left: 60px;
-  }
+  min-height: calc(100vh - 60px); /* 减去头部高度 */
+  box-sizing: border-box;
 }
 </style>
